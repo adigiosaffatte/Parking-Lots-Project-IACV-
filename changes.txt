@@ -1,0 +1,19 @@
+
+Parcheggi che diventano liberi: (FRAME)
+
+- 50
+- 15000
+- 17500
+- 25000
+- 29400
+- 30600
+
+Parcheggi che diventano occupati: (FRAME)
+
+- 1600
+- 9700
+- 15000
+- 17000
+- 27550
+- 29800
+- 31600
