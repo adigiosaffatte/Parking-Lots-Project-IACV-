@@ -1,7 +1,10 @@
-clear all;
+clear;
 clc;
 close all;
 
+%% INIT
+
+w = warning ('off','all');
 % caricamento del video (31814 frames) avente dimensioni 384 (larghezza) x 288 (altezza)
 videoSource = vision.VideoFileReader('appa_park.wmv','ImageColorSpace','Intensity','VideoOutputDataType','uint8');
 
@@ -10,13 +13,15 @@ frameSize = size(firstFrame); % dimensioni del frame (altezza x larghezza)
 
 textPosition = [85 8]; % posizione in cui piazzare il testo
 firstTextedFrame = insertText(firstFrame,textPosition,'Selezionare la zona da monitorare', ...
-'Font','Calibri','FontSize',15,'TextColor','w','BoxOpacity',0); % aggiunta del testo al frame
+'Font','Ubuntu-MI','FontSize',15,'TextColor','w','BoxOpacity',0); % aggiunta del testo al frame
 
-scaleFactor = 3; % fattore di scala per ingrandire il frame
+scaleFactor = 1.6; % fattore di scala per ingrandire il frame
 firstTextedFrame = imresize(firstTextedFrame, scaleFactor); % ingrandimento del frame
 figure(); % creazione di una figura per visualizzare il frame
 set(gcf,'numbertitle','off','name','Parking Lots Project'); % titolo della figura
 imshow(firstTextedFrame); % visualizzazione del frame
+
+%% SELECT RECTANGLE TO MONITOR
 
 rect = getrect(); % estrazione tramite input utente dell'area rettangolare da monitorare
 rect = adjust(rect,frameSize,scaleFactor); % regolarizzazione rettangoli anomali
@@ -28,7 +33,7 @@ invalidRectTextPosition = [65 8]; % posizione in cui piazzare il testo
 while (rectArea < minimumArea) || (rect(3) < minimumSize) || (rect(4) < minimumSize)
     
     invalidRectTextedFrame = insertText(firstFrame,invalidRectTextPosition,'Area selezionata troppo piccola: riprovare', ...
-    'Font','Calibri','FontSize',15,'TextColor','w','BoxOpacity',0); % aggiunta del testo al frame
+    'Font','Ubuntu-MI','FontSize',15,'TextColor','w','BoxOpacity',0); % aggiunta del testo al frame
     invalidRectTextedFrame = imresize(invalidRectTextedFrame, scaleFactor); % ingrandimento del frame
     imshow(invalidRectTextedFrame); % visualizzazione del frame
     
@@ -38,11 +43,18 @@ while (rectArea < minimumArea) || (rect(3) < minimumSize) || (rect(4) < minimumS
     
 end
 
+
+%% INIT:
+%   FOREGROUND DETECTOR OBJECT 
+%   BLOB ANALYZER
+%   TRACKS
+
 % oggetto responsabile della Background Subtraction con GMM
 foregroundDetector = vision.ForegroundDetector('NumGaussians', 5, 'NumTrainingFrames', ...
                      30, 'MinimumBackgroundRatio', 0.7, 'LearningRate',0.005);
 
 % oggetto responsabile dell'analisi dei pixel rilevati come foreground
+% prende come input una immagine binaria, e restituisce i bounding box
 blobAnalyser = vision.BlobAnalysis('BoundingBoxOutputPort', true, 'AreaOutputPort', true, ...
                'CentroidOutputPort', true, 'MinimumBlobArea', minimumArea * 0.1);
 
@@ -55,6 +67,9 @@ busyPlaces = 0; % contatotre dei posti occupati
 places = initializePlaces(); % inizializzazione della struttura relativa alle posizioni dei posti
 frameCount = 0; % contatore del numero di frame
 
+
+%% MAIN LOOP: 1 ITERATION PER FRAME
+
 while ~isDone(videoSource)
     
     nextFrame = step(videoSource); % estrazione di un frame dal video
@@ -65,7 +80,9 @@ while ~isDone(videoSource)
     % predizione della nuova posizione delle tracce
     tracks = predictNewLocationsOfTracks(tracks);
     
-    % assegnamento degli oggetti rilevati alle tracce
+    % ho trovato i nuovi oggetti in movimento, e le nuove tracce (predette con kalman) 
+    % adesso associo gli oggetti rilevati alle tracce
+    % ottengo tracce assegnate, e tracce non assegnate
     [assignments, unassignedTracks, unassignedDetections] = detectionToTrackAssignment(tracks,centroids);
     
     % aggiornamento delle tracce assegnate 
@@ -77,7 +94,7 @@ while ~isDone(videoSource)
     % creazione delle tracce nuove
     [tracks, nextId] = createNewTracks(tracks,unassignedDetections,centroids,bboxes,nextId,rect,scaleFactor);
     
-    minVisibleCount = 8; % valore minimo di visibilità affinchè una traccia venga considerata affidabile
+    minVisibleCount = 8; % valore minimo di visibilitï¿½ affinchï¿½ una traccia venga considerata affidabile
     if ~isempty(tracks)
         reliableTrackInds = [tracks(:).totalVisibleCount] > minVisibleCount; % estrazione degli indici delle tracce affidabili
         reliableTracks = tracks(reliableTrackInds); % estrazione delle tracce affidabili
@@ -86,16 +103,17 @@ while ~isDone(videoSource)
         end
     end
     
+    % cazzate di visualizzazione
     nextFrame = insertShape(nextFrame,'rectangle',bboxes); % inserimento rettangoli attorno alle tracce affidabili
     placesTextPosition = [30 8]; % posizione del testo indicante il numero di parcheggi liberi/occupati
-    nextFrame = insertText(nextFrame,placesTextPosition,sprintf('Posti liberi: %d           Posti occupati: %d          Frame: %d',freePlaces,busyPlaces,frameCount), ...
-    'Font','Calibri','FontSize',15,'TextColor','w','BoxOpacity',0); % aggiunta del testo al frame
+    nextFrame = insertText(nextFrame,placesTextPosition,sprintf('Posti liberi: %d           Posti occupati: %d     Frame: %d',freePlaces,busyPlaces,frameCount), ...
+    'Font','Ubuntu-MI','FontSize',15,'TextColor','w','BoxOpacity',0); % aggiunta del testo al frame
     nextFrame = imresize(nextFrame, scaleFactor); % ingrandimento del frame
     nextFrame = insertShape(nextFrame,'FilledRectangle',rect,'Color','yellow','Opacity',0.1); % evidenziamento area da monitorare
     freeCircles = circlesFromFreePlaces(places,scaleFactor); % ottenimento dei centroidi relativi ai posti liberi
     nextFrame = insertShape(nextFrame,'FilledCircle',freeCircles,'Color','green'); % inserimento di cerchietti verdi in corrispondenza dei posti liberi
     
-    % TODO: STESSA COSA PER I POSTI OCCUPATI (evidenziati però in rosso)
+    % TODO: STESSA COSA PER I POSTI OCCUPATI (evidenziati perï¿½ in rosso)
     %busyCircles = circlesFromBusyPlaces(places,scaleFactor);
     %nextFrame = insertShape(nextFrame,'FilledCircle',busyCircles,'Color','red');
     

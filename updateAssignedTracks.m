@@ -6,7 +6,12 @@ function tr = updateAssignedTracks(tracks,assignments,centroids,bboxes,rect,scal
         centroid = centroids(detectionIdx, :); % estrazione del centroide dell'oggetto
         bbox = bboxes(detectionIdx, :); % estrazionde della bounding box dell'oggetto
         overlapGrade = overlappingGrade(bbox * scaleFactor,rect); % calcolo del grado di overlapping per l'oggetto
-
+        if overlapGrade > 0
+           edrfghydcfghjfgh=0;
+        else
+            d
+        end
+        
         % correzione della stima della posizione della traccia utilizzando
         % la nuova rilevazione
         correct(tracks(trackIdx).kalmanFilter, centroid);
@@ -15,10 +20,10 @@ function tr = updateAssignedTracks(tracks,assignments,centroids,bboxes,rect,scal
         % effettivamente trovata
         tracks(trackIdx).bbox = bbox;
 
-        % aggiornamento dell'età della traccia
+        % aggiornamento dell'etï¿½ della traccia
         tracks(trackIdx).age = tracks(trackIdx).age + 1;
 
-        % aggiornamento della visibilità della traccia
+        % aggiornamento della visibilitï¿½ della traccia
         tracks(trackIdx).totalVisibleCount = ...
             tracks(trackIdx).totalVisibleCount + 1;
         tracks(trackIdx).consecutiveInvisibleCount = 0;
