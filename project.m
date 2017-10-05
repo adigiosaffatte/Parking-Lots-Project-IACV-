@@ -6,7 +6,11 @@ close all;
 
 w = warning ('off','all');
 % caricamento del video (31814 frames) avente dimensioni 384 (larghezza) x 288 (altezza)
-videoSource = vision.VideoFileReader('appa_park.wmv','ImageColorSpace','Intensity','VideoOutputDataType','uint8');
+videoSource = vision.VideoFileReader('appa_park.mp4','ImageColorSpace','Intensity','VideoOutputDataType','uint8');
+indexGood = [1:400,1400:2000,5400:5700,6400:6800,9700:10100,16900:17700,24800:25600,...
+             27450:27850,29000:30000,30400:31800]; % Frame interessanti
+         
+jump = 1; %Flag che indica se saltare ai flag interessanti
 
 firstFrame = step(videoSource); % estrazione di un frame dal video
 frameSize = size(firstFrame); % dimensioni del frame (altezza x larghezza)
@@ -28,6 +32,7 @@ imshow(firstTextedFrame); % visualizzazione del frame
 % park area params
 minimumArea = 7500;
 minimumSize = 60;
+maximumArea = 384*288/30; % area massima monitorabile
 initXsize = 200;
 initYsize = 50;
 invalidRectTextPosition = [65 8]; % posizione in cui piazzare il testo
@@ -47,7 +52,7 @@ validRegion = 0;
 while(~validRegion)
     if size(props,1) > 1 
         tmp_textPos = [invalidRectTextPosition(1)-30 invalidRectTextPosition(2)];
-        invalidRectTextedFrame = insertText(firstFrame,tmp_textPos,'Area selezionata non è un quadrilatero, riprovare', ...
+        invalidRectTextedFrame = insertText(firstFrame,tmp_textPos,'Area selezionata non ?? un quadrilatero, riprovare', ...
          'FontSize',13,'TextColor','w','BoxOpacity',0); % aggiunta del testo al frame
     else
         if (props.Area) < minimumArea
@@ -105,7 +110,7 @@ foregroundDetector = vision.ForegroundDetector('NumGaussians', 5, 'NumTrainingFr
 % oggetto responsabile dell'analisi dei pixel rilevati come foreground
 % prende come input una immagine binaria, e restituisce i bounding box
 blobAnalyser = vision.BlobAnalysis('BoundingBoxOutputPort', true, 'AreaOutputPort', true, ...
-               'CentroidOutputPort', true, 'MinimumBlobArea', minimumArea * 0.1);
+               'CentroidOutputPort', true, 'MinimumBlobArea', minimumArea * 0.1,'MaximumBlobArea',maximumArea);
 
 % inizializzazione delle tracce per il Tracking
 tracks = initializeTracks();     
@@ -122,51 +127,54 @@ frameCount = 0; % contatore del numero di frame
 while ~isDone(videoSource)
     
     nextFrame = step(videoSource); % estrazione di un frame dal video
+    
+    if (any(frameCount == indexGood(:)) || jump==0) %Se il jump non ? attivo o se il frame ? buono
+        
+        % riconoscimento degli oggetti in movimento tramite Background Subtraction (GMM)
+        [centroids, bboxes, mask] = detectObjects(nextFrame,foregroundDetector,blobAnalyser);
 
-    % riconoscimento degli oggetti in movimento tramite Background Subtraction (GMM)
-    [centroids, bboxes, mask] = detectObjects(nextFrame,foregroundDetector,blobAnalyser);
-    
-    % predizione della nuova posizione delle tracce
-    tracks = predictNewLocationsOfTracks(tracks);
-    
-    % ho trovato i nuovi oggetti in movimento, e le nuove tracce (predette con kalman) 
-    % adesso associo gli oggetti rilevati alle tracce
-    % ottengo tracce assegnate, e tracce non assegnate
-    [assignments, unassignedTracks, unassignedDetections] = detectionToTrackAssignment(tracks,centroids);
-    
-    % aggiornamento delle tracce assegnate 
-    tracks = updateAssignedTracks(tracks,assignments,centroids,bboxes,parkingAreaPoly,scaleFactor);
-    % aggiornamento delle tracce NON assegnate
-    tracks = updateUnassignedTracks(tracks,unassignedTracks);
-    % eliminazione delle tracce perdute
-    [tracks,freePlaces,busyPlaces,places] = deleteLostTracks(tracks,freePlaces,busyPlaces,places);
-    % creazione delle tracce nuove
-    [tracks, nextId] = createNewTracks(tracks,unassignedDetections,centroids,bboxes,nextId,parkingAreaPoly,scaleFactor);
-    
-    minVisibleCount = 8; % valore minimo di visibilit� affinch� una traccia venga considerata affidabile
-    if ~isempty(tracks)
-        reliableTrackInds = [tracks(:).totalVisibleCount] > minVisibleCount; % estrazione degli indici delle tracce affidabili
-        reliableTracks = tracks(reliableTrackInds); % estrazione delle tracce affidabili
-        if ~isempty(reliableTracks)
-            bboxes = cat(1, reliableTracks.bbox); % estrazione delle bounding boxes associate alle tracce affidabili
+        % predizione della nuova posizione delle tracce
+        tracks = predictNewLocationsOfTracks(tracks);
+
+        % ho trovato i nuovi oggetti in movimento, e le nuove tracce (predette con kalman) 
+        % adesso associo gli oggetti rilevati alle tracce
+        % ottengo tracce assegnate, e tracce non assegnate
+        [assignments, unassignedTracks, unassignedDetections] = detectionToTrackAssignment(tracks,centroids);
+
+        % aggiornamento delle tracce assegnate 
+        tracks = updateAssignedTracks(tracks,assignments,centroids,bboxes,parkingAreaPoly,scaleFactor);
+        % aggiornamento delle tracce NON assegnate
+        tracks = updateUnassignedTracks(tracks,unassignedTracks);
+        % eliminazione delle tracce perdute
+        [tracks,freePlaces,busyPlaces,places] = deleteLostTracks(tracks,freePlaces,busyPlaces,places);
+        % creazione delle tracce nuove
+        [tracks, nextId] = createNewTracks(tracks,unassignedDetections,centroids,bboxes,nextId,parkingAreaPoly,scaleFactor);
+
+        minVisibleCount = 8; % valore minimo di visibilit??? affinch??? una traccia venga considerata affidabile
+        if ~isempty(tracks)
+            reliableTrackInds = [tracks(:).totalVisibleCount] > minVisibleCount; % estrazione degli indici delle tracce affidabili
+            reliableTracks = tracks(reliableTrackInds); % estrazione delle tracce affidabili
+            if ~isempty(reliableTracks)
+                bboxes = cat(1, reliableTracks.bbox); % estrazione delle bounding boxes associate alle tracce affidabili
+            end
         end
+
+        % cazzate di visualizzazione
+        nextFrame = insertShape(nextFrame,'rectangle',bboxes); % inserimento rettangoli attorno alle tracce affidabili
+        placesTextPosition = [30 8]; % posizione del testo indicante il numero di parcheggi liberi/occupati
+        nextFrame = insertText(nextFrame,placesTextPosition,sprintf('Posti liberi: %d           Posti occupati: %d     Frame: %d',freePlaces,busyPlaces,frameCount), ...
+        'FontSize',13,'TextColor','w','BoxOpacity',0); % aggiunta del testo al frame
+        nextFrame = imresize(nextFrame, scaleFactor); % ingrandimento del frame
+        nextFrame = insertShape(nextFrame,'FilledPolygon',parkingArea_rearranged,'Color','yellow','Opacity',0.3); % evidenziamento area da monitorare
+        freeCircles = circlesFromFreePlaces(places,scaleFactor); % ottenimento dei centroidi relativi ai posti liberi
+        nextFrame = insertShape(nextFrame,'FilledCircle',freeCircles,'Color','green'); % inserimento di cerchietti verdi in corrispondenza dei posti liberi
+        busyCircles = circlesFromBusyPlaces(places,scaleFactor); % ottenimento dei centroidi relativi ai posti occupati
+        nextFrame = insertShape(nextFrame,'FilledCircle',busyCircles,'Color','red'); % inserimento di cerchietti rossi in corrispondenza dei posti occupati
+        imshow(nextFrame); % visualizzazione del frame
+    else
+        foregroundDetector.reset();
+        tracks = initializeTracks();  
     end
-    
-    % cazzate di visualizzazione
-    nextFrame = insertShape(nextFrame,'rectangle',bboxes); % inserimento rettangoli attorno alle tracce affidabili
-    placesTextPosition = [30 8]; % posizione del testo indicante il numero di parcheggi liberi/occupati
-    nextFrame = insertText(nextFrame,placesTextPosition,sprintf('Posti liberi: %d           Posti occupati: %d     Frame: %d',freePlaces,busyPlaces,frameCount), ...
-    'FontSize',13,'TextColor','w','BoxOpacity',0); % aggiunta del testo al frame
-    nextFrame = imresize(nextFrame, scaleFactor); % ingrandimento del frame
-    nextFrame = insertShape(nextFrame,'FilledPolygon',parkingArea_rearranged,'Color','yellow','Opacity',0.3); % evidenziamento area da monitorare
-    freeCircles = circlesFromFreePlaces(places,scaleFactor); % ottenimento dei centroidi relativi ai posti liberi
-    nextFrame = insertShape(nextFrame,'FilledCircle',freeCircles,'Color','green'); % inserimento di cerchietti verdi in corrispondenza dei posti liberi
-    
-    % TODO: STESSA COSA PER I POSTI OCCUPATI (evidenziati per� in rosso)
-    %busyCircles = circlesFromBusyPlaces(places,scaleFactor);
-    %nextFrame = insertShape(nextFrame,'FilledCircle',busyCircles,'Color','red');
-    
-    imshow(nextFrame); % visualizzazione del frame
     frameCount = frameCount + 1; % aumento del contatore di frame
 end
 
