@@ -15,7 +15,7 @@ textPosition = [85 8]; % posizione in cui piazzare il testo
 firstTextedFrame = insertText(firstFrame,textPosition,'Selezionare la zona da monitorare', ...
 'FontSize',13,'TextColor','w','BoxOpacity',0); % aggiunta del testo al frame
 
-scaleFactor = 1.6; % fattore di scala per ingrandire il frame
+scaleFactor = 3; % fattore di scala per ingrandire il frame
 firstTextedFrame = imresize(firstTextedFrame, scaleFactor); % ingrandimento del frame
 figure(); % creazione di una figura per visualizzare il frame
 set(gcf,'numbertitle','off','name','Parking Lots Project'); % titolo della figura
@@ -77,7 +77,9 @@ while(~validRegion)
         props = regionprops(parkShape.createMask);
     end
 end
-parkingAreaPoly = getPosition(parkShape); 
+parkingAreaPoly = getPosition(parkShape);
+[tmpX,tmpY]=poly2ccw(parkingAreaPoly(:,1),parkingAreaPoly(:,2));
+parkingAreaPoly = [tmpX,tmpY];
 delete(parkShape);
 % parkingArea_rearranged contains the same values of parkingAreaPoly, 
 % but rearranged to be compatible with insertShape function
@@ -88,9 +90,8 @@ for i = 1:4
     parkingArea_rearranged(2*i-1) = parkingAreaPoly(i,1);
     parkingArea_rearranged(2*i)   = parkingAreaPoly(i,2);
 end
-firstTextedFrame = insertShape(firstTextedFrame,'FilledPolygon',parkingArea_rearranged,'Opacity',0.3);
+firstTextedFrame = insertShape(firstTextedFrame,'FilledPolygon',parkingArea_rearranged,'Opacity',0.1);
 imshow(firstTextedFrame);
-
 
 %% INIT:
 %   FOREGROUND DETECTOR OBJECT 
