@@ -13,7 +13,7 @@ frameSize = size(firstFrame); % dimensioni del frame (altezza x larghezza)
 
 textPosition = [85 8]; % posizione in cui piazzare il testo
 firstTextedFrame = insertText(firstFrame,textPosition,'Selezionare la zona da monitorare', ...
-'Font','Ubuntu-MI','FontSize',15,'TextColor','w','BoxOpacity',0); % aggiunta del testo al frame
+'FontSize',13,'TextColor','w','BoxOpacity',0); % aggiunta del testo al frame
 
 scaleFactor = 1.6; % fattore di scala per ingrandire il frame
 firstTextedFrame = imresize(firstTextedFrame, scaleFactor); % ingrandimento del frame
@@ -23,25 +23,73 @@ imshow(firstTextedFrame); % visualizzazione del frame
 
 %% SELECT RECTANGLE TO MONITOR
 
-rect = getrect(); % estrazione tramite input utente dell'area rettangolare da monitorare
-rect = adjust(rect,frameSize,scaleFactor); % regolarizzazione rettangoli anomali
-rectArea = rect(3) * rect(4); % calcolo dell'area del rettangolo
 
-minimumArea = 7500; % area minima monitorabile
-minimumSize = 60; % altezza/larghezza minima monitorabile 
+
+% park area params
+minimumArea = 7500;
+minimumSize = 60;
+initXsize = 200;
+initYsize = 50;
 invalidRectTextPosition = [65 8]; % posizione in cui piazzare il testo
-while (rectArea < minimumArea) || (rect(3) < minimumSize) || (rect(4) < minimumSize)
-    
-    invalidRectTextedFrame = insertText(firstFrame,invalidRectTextPosition,'Area selezionata troppo piccola: riprovare', ...
-    'Font','Ubuntu-MI','FontSize',15,'TextColor','w','BoxOpacity',0); % aggiunta del testo al frame
-    invalidRectTextedFrame = imresize(invalidRectTextedFrame, scaleFactor); % ingrandimento del frame
-    imshow(invalidRectTextedFrame); % visualizzazione del frame
-    
-    rect = getrect(); % estrazione tramite input utente dell'area rettangolare da monitorare
-    rect = adjust(rect,frameSize,scaleFactor); % regolarizzazione rettangoli anomali
-    rectArea = rect(3) * rect(4); % calcolo dell'area del rettangolo
-    
+
+parkShape = impoly(gca,[frameSize(2)/2-initXsize,frameSize(1)/2-initYsize; ... 
+                        frameSize(2)/2-initXsize,frameSize(1)/2+initYsize; ...
+                        frameSize(2)/2+initXsize,frameSize(1)/2+initYsize; ...
+                        frameSize(2)/2+initXsize,frameSize(1)/2-initYsize;]);
+api = iptgetapi(parkShape);
+fcn = makeConstrainToRectFcn('impoly',get(gca,'XLim'),get(gca,'YLim'));
+api.setPositionConstraintFcn(fcn);
+api.setColor('yellow');
+parkShape.wait;
+
+props = regionprops(parkShape.createMask);
+validRegion = 0;
+while(~validRegion)
+    if size(props,1) > 1 
+        tmp_textPos = [invalidRectTextPosition(1)-30 invalidRectTextPosition(2)];
+        invalidRectTextedFrame = insertText(firstFrame,tmp_textPos,'Area selezionata non è un quadrilatero, riprovare', ...
+         'FontSize',13,'TextColor','w','BoxOpacity',0); % aggiunta del testo al frame
+    else
+        if (props.Area) < minimumArea
+          invalidRectTextedFrame = insertText(firstFrame,invalidRectTextPosition,'Area selezionata troppo piccola, riprovare', ...
+           'FontSize',13,'TextColor','w','BoxOpacity',0); % aggiunta del testo al frame
+        else
+            if min(props.BoundingBox(3:4)) < minimumSize
+                invalidRectTextedFrame = insertText(firstFrame,invalidRectTextPosition,'Area selezionata troppo schiacciata, riprovare', ...
+                    'FontSize',13,'TextColor','w','BoxOpacity',0); % aggiunta del testo al frame
+            else
+                validRegion = 1;
+            end
+        end
+    end
+    old_pos = getPosition(parkShape);
+    if ~validRegion
+        invalidRectTextedFrame = imresize(invalidRectTextedFrame, scaleFactor); % ingrandimento del frame
+        imshow(invalidRectTextedFrame);
+        % the previous impoly object has been torn down, I have to setup a
+        % new one, equal to the old one
+        parkShape = impoly(gca,old_pos);
+        api = iptgetapi(parkShape);
+        fcn = makeConstrainToRectFcn('impoly',get(gca,'XLim'),get(gca,'YLim'));
+        api.setPositionConstraintFcn(fcn);
+        api.setColor('yellow');
+        parkShape.wait;
+        props = regionprops(parkShape.createMask);
+    end
 end
+parkingAreaPoly = getPosition(parkShape); 
+delete(parkShape);
+% parkingArea_rearranged contains the same values of parkingAreaPoly, 
+% but rearranged to be compatible with insertShape function
+parkingArea_rearranged = zeros([1 8]);
+% rearrange values of the position
+% in order to fit insertShape() requirements
+for i = 1:4
+    parkingArea_rearranged(2*i-1) = parkingAreaPoly(i,1);
+    parkingArea_rearranged(2*i)   = parkingAreaPoly(i,2);
+end
+firstTextedFrame = insertShape(firstTextedFrame,'FilledPolygon',parkingArea_rearranged,'Opacity',0.3);
+imshow(firstTextedFrame);
 
 
 %% INIT:
@@ -86,13 +134,13 @@ while ~isDone(videoSource)
     [assignments, unassignedTracks, unassignedDetections] = detectionToTrackAssignment(tracks,centroids);
     
     % aggiornamento delle tracce assegnate 
-    tracks = updateAssignedTracks(tracks,assignments,centroids,bboxes,rect,scaleFactor);
+    tracks = updateAssignedTracks(tracks,assignments,centroids,bboxes,parkingAreaPoly,scaleFactor);
     % aggiornamento delle tracce NON assegnate
     tracks = updateUnassignedTracks(tracks,unassignedTracks);
     % eliminazione delle tracce perdute
     [tracks,freePlaces,busyPlaces,places] = deleteLostTracks(tracks,freePlaces,busyPlaces,places);
     % creazione delle tracce nuove
-    [tracks, nextId] = createNewTracks(tracks,unassignedDetections,centroids,bboxes,nextId,rect,scaleFactor);
+    [tracks, nextId] = createNewTracks(tracks,unassignedDetections,centroids,bboxes,nextId,parkingAreaPoly,scaleFactor);
     
     minVisibleCount = 8; % valore minimo di visibilit� affinch� una traccia venga considerata affidabile
     if ~isempty(tracks)
@@ -107,9 +155,9 @@ while ~isDone(videoSource)
     nextFrame = insertShape(nextFrame,'rectangle',bboxes); % inserimento rettangoli attorno alle tracce affidabili
     placesTextPosition = [30 8]; % posizione del testo indicante il numero di parcheggi liberi/occupati
     nextFrame = insertText(nextFrame,placesTextPosition,sprintf('Posti liberi: %d           Posti occupati: %d     Frame: %d',freePlaces,busyPlaces,frameCount), ...
-    'Font','Ubuntu-MI','FontSize',15,'TextColor','w','BoxOpacity',0); % aggiunta del testo al frame
+    'FontSize',13,'TextColor','w','BoxOpacity',0); % aggiunta del testo al frame
     nextFrame = imresize(nextFrame, scaleFactor); % ingrandimento del frame
-    nextFrame = insertShape(nextFrame,'FilledRectangle',rect,'Color','yellow','Opacity',0.1); % evidenziamento area da monitorare
+    nextFrame = insertShape(nextFrame,'FilledPolygon',parkingArea_rearranged,'Color','yellow','Opacity',0.3); % evidenziamento area da monitorare
     freeCircles = circlesFromFreePlaces(places,scaleFactor); % ottenimento dei centroidi relativi ai posti liberi
     nextFrame = insertShape(nextFrame,'FilledCircle',freeCircles,'Color','green'); % inserimento di cerchietti verdi in corrispondenza dei posti liberi
     
