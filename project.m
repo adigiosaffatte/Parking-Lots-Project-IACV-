@@ -134,12 +134,12 @@ while ~isDone(videoSource)
         [centroids, bboxes, mask] = detectObjects(nextFrame,foregroundDetector,blobAnalyser);
 
         % predizione della nuova posizione delle tracce
-        tracks = predictNewLocationsOfTracks(tracks);
+%         tracks = predictNewLocationsOfTracks(tracks);
 
         % ho trovato i nuovi oggetti in movimento, e le nuove tracce (predette con kalman) 
         % adesso associo gli oggetti rilevati alle tracce
         % ottengo tracce assegnate, e tracce non assegnate
-        [assignments, unassignedTracks, unassignedDetections] = detectionToTrackAssignment(tracks,centroids);
+        [assignments, unassignedTracks, unassignedDetections] = detectionToTrackAssignment(tracks,centroids,bboxes);
 
         % aggiornamento delle tracce assegnate 
         tracks = updateAssignedTracks(tracks,assignments,centroids,bboxes,parkingAreaPoly,scaleFactor);
