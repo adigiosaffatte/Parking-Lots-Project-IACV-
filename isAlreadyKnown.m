@@ -5,7 +5,14 @@ function index = isAlreadyKnown(parkLot,places)
     maxOverlap = 0;
     
     for i = 1:length(places)
-        overlap = overlappingGrade(parkLot,places(i).bbox);
+        topLeftCorner = [places(i).bbox(1),places(i).bbox(2)];
+        topRightCorner = [places(i).bbox(1)+places(i).bbox(3),places(i).bbox(2)];
+        bottomRightCorner = [places(i).bbox(1)+places(i).bbox(3),places(i).bbox(2)+places(i).bbox(4)];
+        bottomLeftCorner = [places(i).bbox(1),places(i).bbox(2)+places(i).bbox(4)];
+        polyX = [topLeftCorner(1),topRightCorner(1),bottomRightCorner(1),bottomLeftCorner(1)];
+        polyY = [topLeftCorner(2),topRightCorner(2),bottomRightCorner(2),bottomLeftCorner(2)];
+        polyPlace = [double(polyX'),double(polyY')];
+        overlap = overlappingGrade(parkLot,polyPlace);
         if(overlap > maxOverlap)
             maxOverlap = overlap;
             index = i;
