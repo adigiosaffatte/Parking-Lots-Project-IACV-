@@ -11,6 +11,8 @@ bottomRightCornerOverlap = [rectOverlap(1) + rectOverlap(3), rectOverlap(2) + re
 polygonRectX = [topLeftCornerOverlap(1),topRightCornerOverlap(1),bottomRightCornerOverlap(1),bottomLeftCornerOverlap(1)];
 polygonRectY = [topLeftCornerOverlap(2),topRightCornerOverlap(2),bottomRightCornerOverlap(2),bottomLeftCornerOverlap(2)];
 
+polygonRectX = double(polygonRectX);
+polygonRectY = double(polygonRectY);
 polygonBaseX = polygonBase(:,1);
 polygonBaseY = polygonBase(:,2);
 
@@ -19,5 +21,9 @@ polygonBaseY = polygonBase(:,2);
 overlappingPolygonArea = polyarea(overlappingPolygonX,overlappingPolygonY);
 totalArea = rectOverlap(3) * rectOverlap(4);
 overlapGrade = (double(overlappingPolygonArea) / double(totalArea));
+
+if (overlapGrade > 0)
+    overlapGrade
+end
 
 end

@@ -12,7 +12,7 @@ function index = isAlreadyKnown(parkLot,places)
         end
     end
     
-    if(maxOverlap < 0.65)
+    if(maxOverlap < 0.45)
         index = 0;
     end
 end

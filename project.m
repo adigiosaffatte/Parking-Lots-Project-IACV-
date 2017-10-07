@@ -105,7 +105,7 @@ imshow(firstTextedFrame);
 
 % oggetto responsabile della Background Subtraction con GMM
 foregroundDetector = vision.ForegroundDetector('NumGaussians', 5, 'NumTrainingFrames', ...
-                     30, 'MinimumBackgroundRatio', 0.7, 'LearningRate',0.005);
+                     30, 'MinimumBackgroundRatio', 0.55, 'LearningRate',0.005);
 
 % oggetto responsabile dell'analisi dei pixel rilevati come foreground
 % prende come input una immagine binaria, e restituisce i bounding box
@@ -165,7 +165,7 @@ while ~isDone(videoSource)
         nextFrame = insertText(nextFrame,placesTextPosition,sprintf('Posti liberi: %d           Posti occupati: %d     Frame: %d',freePlaces,busyPlaces,frameCount), ...
         'FontSize',13,'TextColor','w','BoxOpacity',0); % aggiunta del testo al frame
         nextFrame = imresize(nextFrame, scaleFactor); % ingrandimento del frame
-        nextFrame = insertShape(nextFrame,'FilledPolygon',parkingArea_rearranged,'Color','yellow','Opacity',0.3); % evidenziamento area da monitorare
+        nextFrame = insertShape(nextFrame,'FilledPolygon',parkingArea_rearranged,'Color','yellow','Opacity',0.1); % evidenziamento area da monitorare
         freeCircles = circlesFromFreePlaces(places,scaleFactor); % ottenimento dei centroidi relativi ai posti liberi
         nextFrame = insertShape(nextFrame,'FilledCircle',freeCircles,'Color','green'); % inserimento di cerchietti verdi in corrispondenza dei posti liberi
         busyCircles = circlesFromBusyPlaces(places,scaleFactor); % ottenimento dei centroidi relativi ai posti occupati
