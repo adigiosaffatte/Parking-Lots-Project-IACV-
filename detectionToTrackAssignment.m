@@ -13,12 +13,14 @@ function [assignments, unassignedTracks, unassignedDetections] = detectionToTrac
             trackCentroid =  predict(tracks(i).kalmanFilter);
             overlap = zeros(nDetections,1);
             for j = 1:nDetections
-               overlap(j) = overlappingGradeOLD(tracks(i).bbox,bboxes(j,:));
+               overlap(j) = max(...
+                                overlappingGradeOLD(tracks(i).bbox,bboxes(j,:)),...
+                                overlappingGradeOLD(bboxes(j,:),tracks(i).bbox));
             end
             cost(i, :) = distance(trackCentroid, centroids) - overlap*10;
         end
     end
-    costOfNonAssignment = 10; % costo del NON assegnare un oggetto ad una traccia
+    costOfNonAssignment = 7; % costo del NON assegnare un oggetto ad una traccia
     
     % si risolve il problema di assegnamento oggetti a tracce minimizzando il costo totale
     [assignments, unassignedTracks, unassignedDetections] = ...

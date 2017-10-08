@@ -7,9 +7,10 @@ close all;
 w = warning ('off','all');
 % caricamento del video (31814 frames) avente dimensioni 384 (larghezza) x 288 (altezza)
 videoSource = vision.VideoFileReader('appa_park.mp4','ImageColorSpace','Intensity','VideoOutputDataType','uint8');
-indexGood = [1:400,1400:2000,5400:5700,6400:6800,9700:10100,16900:17700,24800:25600,...
+indexGood = [1:400,1400:2000,5400:5700,6400:6800,9600:10100,16900:17600,24800:25600,...
              27450:27850,29000:30000,30400:31800]; % Frame interessanti
-         
+ % 
+ 
 jump = 1; %Flag che indica se saltare ai flag interessanti
 
 firstFrame = step(videoSource); % estrazione di un frame dal video
@@ -21,8 +22,8 @@ firstTextedFrame = insertText(firstFrame,textPosition,'Selezionare la zona da mo
 
 scaleFactor = 3; % fattore di scala per ingrandire il frame
 firstTextedFrame = imresize(firstTextedFrame, scaleFactor); % ingrandimento del frame
-figure(); % creazione di una figura per visualizzare il frame
-set(gcf,'numbertitle','off','name','Parking Lots Project'); % titolo della figura
+figure(1); % creazione di una figura per visualizzare il frame
+set(gcf,'numbertitle','off','name','Parking Lots Project','Visible','off'); % titolo della figura
 imshow(firstTextedFrame); % visualizzazione del frame
 
 %% SELECT RECTANGLE TO MONITOR
@@ -70,6 +71,7 @@ while(~validRegion)
     old_pos = getPosition(parkShape);
     if ~validRegion
         invalidRectTextedFrame = imresize(invalidRectTextedFrame, scaleFactor); % ingrandimento del frame
+        figure(1);
         imshow(invalidRectTextedFrame);
         % the previous impoly object has been torn down, I have to setup a
         % new one, equal to the old one
@@ -96,6 +98,7 @@ for i = 1:4
     parkingArea_rearranged(2*i)   = parkingAreaPoly(i,2);
 end
 firstTextedFrame = insertShape(firstTextedFrame,'FilledPolygon',parkingArea_rearranged,'Opacity',0.1);
+figure(1);
 imshow(firstTextedFrame);
 
 %% INIT:
@@ -104,13 +107,13 @@ imshow(firstTextedFrame);
 %   TRACKS
 
 % oggetto responsabile della Background Subtraction con GMM
-foregroundDetector = vision.ForegroundDetector('NumGaussians', 5, 'NumTrainingFrames', ...
-                     30, 'MinimumBackgroundRatio', 0.55, 'LearningRate',0.005);
+foregroundDetector = vision.ForegroundDetector('NumGaussians', 2, 'NumTrainingFrames', ...
+                     30, 'MinimumBackgroundRatio', 0.55, 'LearningRate',0.013);
 
 % oggetto responsabile dell'analisi dei pixel rilevati come foreground
 % prende come input una immagine binaria, e restituisce i bounding box
 blobAnalyser = vision.BlobAnalysis('BoundingBoxOutputPort', true, 'AreaOutputPort', true, ...
-               'CentroidOutputPort', true, 'MinimumBlobArea', minimumArea * 0.1,'MaximumBlobArea',maximumArea);
+               'CentroidOutputPort', true, 'MinimumBlobArea', minimumArea * 0.08,'MaximumBlobArea',maximumArea);
 
 % inizializzazione delle tracce per il Tracking
 tracks = initializeTracks();     
@@ -170,6 +173,7 @@ while ~isDone(videoSource)
         nextFrame = insertShape(nextFrame,'FilledCircle',freeCircles,'Color','green'); % inserimento di cerchietti verdi in corrispondenza dei posti liberi
         busyCircles = circlesFromBusyPlaces(places,scaleFactor); % ottenimento dei centroidi relativi ai posti occupati
         nextFrame = insertShape(nextFrame,'FilledCircle',busyCircles,'Color','red'); % inserimento di cerchietti rossi in corrispondenza dei posti occupati
+        figure(1);
         imshow(nextFrame); % visualizzazione del frame
     else
         foregroundDetector.reset();

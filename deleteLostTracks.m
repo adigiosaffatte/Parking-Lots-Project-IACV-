@@ -15,12 +15,15 @@ function [tr,freePl,busyPl,pl] = deleteLostTracks(tracks,freePlaces,busyPlaces,p
     totalVisibleCounts = [tracks(:).totalVisibleCount];
     visibility = totalVisibleCounts ./ ages;
 
-    % estrazione degli indici delle tracce da eliminare
+    % estrazione degli indici delle tracce da eliminare in quanto rumore o macchine ferme
     lostInds = (ages < ageThreshold & visibility < 0.6) | ...
         [tracks(:).consecutiveInvisibleCount] >= invisibleForTooLong;
+    
+    % estrazione degli indici delle tracce da eliminare in quanto macchine ferme
+    lostVisTracks = [tracks(:).consecutiveInvisibleCount] >= invisibleForTooLong;
 
     % estrazione delle tracce da eliminare
-    lostTracks = tracks(lostInds);
+    lostTracks = tracks(lostVisTracks);
     
     % analisi della storia della traccia, utilizzando le informazioni 
     % contenute nel vettore relativo al grado di overlapping della traccia,
@@ -62,7 +65,7 @@ function [tr,freePl,busyPl,pl] = deleteLostTracks(tracks,freePlaces,busyPlaces,p
             end
         end
     end
-            
+    
     % eliminazione delle tracce perdute
     tracks = tracks(~lostInds);
     

@@ -5,12 +5,20 @@ function [centroids, bboxes, mask] = detectObjects(frame,detector,blobAnalyser)
 
         % riconoscimento del foreground
         mask = detector.step(frame);
+        
+        figure(2)
+        subplot(2,1,1)
+        imshow(mask);
 
         % applicazione di operazioni morfologiche per rimuovere il noise e riempire i buchi
-        mask = imopen(mask, strel('rectangle', [3,3]));
-        mask = imclose(mask, strel('rectangle', [15, 15]));
+        mask = imopen(mask, strel('diamond', 1));
+        mask = imclose(mask, strel('diamond', 4));
         mask = imfill(mask, 'holes');
 
         % analisi dei "gruppi" di pixel per trovare le componenti connesse
         [~, centroids, bboxes] = blobAnalyser.step(mask);
+        
+        maskBboxes = insertShape(im2uint8(mask),'rectangle',bboxes);
+        subplot(2,1,2)
+        imshow(maskBboxes);
 end
