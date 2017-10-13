@@ -7,8 +7,8 @@ function [tr,freePl,busyPl,pl] = deleteLostTracks(tracks,freePlaces,busyPlaces,p
         return;
     end
 
-    invisibleForTooLong = 20; % soglia di invisibilit? massima
-    ageThreshold = 8; % soglia di et? minima
+    invisibleForTooLong = 30; % soglia di invisibilit? massima
+    ageThreshold = 18; % soglia di et? minima
 
     % calcolo della frazione di frame in cui la traccia ? stata visibile
     ages = [tracks(:).age];
@@ -30,8 +30,7 @@ function [tr,freePl,busyPl,pl] = deleteLostTracks(tracks,freePlaces,busyPlaces,p
     % al fine di capire se un posto occupato ? diventato libero
     for i = 1:length(lostTracks) 
          if (lostTracks(i).interestingCount == lostTracks(i).age) && ...
-            (lostTracks(i).overlappingGrade(lostTracks(i).age) < 0.15) && ...
-            (lostTracks(i).overlappingGrade(lostTracks(i).age) <= 0.75)
+            (lostTracks(i).overlappingGrade(lostTracks(i).age) < 0.19)
             freePlaces = freePlaces + 1;
  
             % controllo che il posto non sia gi? presente nel vettore dei posti
@@ -46,7 +45,8 @@ function [tr,freePl,busyPl,pl] = deleteLostTracks(tracks,freePlaces,busyPlaces,p
                 places(presenceIndex).isFree = 1;
             end
          end
-         if (lostTracks(i).interestingCount >0) && (lostTracks(i).overlappingGrade(lostTracks(i).age) > 0.75)
+         if (lostTracks(i).interestingCount >0) && (lostTracks(i).overlappingGrade(lostTracks(i).age) > 0.75) ...
+            && (lostTracks(i).overlappingGrade(1) < 0.75)
             % controllo che il posto non sia gi? presente nel vettore dei posti
             presenceIndex = isAlreadyKnown(lostTracks(i).bbox,places);
             

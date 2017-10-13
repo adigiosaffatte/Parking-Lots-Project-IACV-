@@ -20,7 +20,7 @@ function [assignments, unassignedTracks, unassignedDetections] = detectionToTrac
             cost(i, :) = distance(trackCentroid, centroids) - overlap*10;
         end
     end
-    costOfNonAssignment = 7; % costo del NON assegnare un oggetto ad una traccia
+    costOfNonAssignment = 13; % costo del NON assegnare un oggetto ad una traccia
     
     % si risolve il problema di assegnamento oggetti a tracce minimizzando il costo totale
     [assignments, unassignedTracks, unassignedDetections] = ...

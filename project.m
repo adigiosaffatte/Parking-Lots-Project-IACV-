@@ -7,9 +7,12 @@ close all;
 w = warning ('off','all');
 % caricamento del video (31814 frames) avente dimensioni 384 (larghezza) x 288 (altezza)
 videoSource = vision.VideoFileReader('appa_park.mp4','ImageColorSpace','Intensity','VideoOutputDataType','uint8');
-indexGood = [1:400,1400:2000,5400:5700,6400:6800,9600:10100,16900:17600,24800:25600,...
-             27450:27850,29000:30000,30400:31800]; % Frame interessanti
- % 
+indexGood = [1:400,1400:2000,5400:5700,6400:6800,9600:10100,16900:17600,24800:25600,27450:27850,29000:30060]; % Frame interessanti
+         
+ % 500:1200 Trim
+ % 100:800 TrimTrim
+ % 1:400,1400:2000,5400:5700,6400:6800,9600:10100,16900:17600,24800:25600,27450:27850,29000:31814
+             
  
 jump = 1; %Flag che indica se saltare ai flag interessanti
 
@@ -108,7 +111,7 @@ imshow(firstTextedFrame);
 
 % oggetto responsabile della Background Subtraction con GMM
 foregroundDetector = vision.ForegroundDetector('NumGaussians', 2, 'NumTrainingFrames', ...
-                     30, 'MinimumBackgroundRatio', 0.55, 'LearningRate',0.013);
+                     30, 'MinimumBackgroundRatio', 0.55, 'LearningRate',0.015);
 
 % oggetto responsabile dell'analisi dei pixel rilevati come foreground
 % prende come input una immagine binaria, e restituisce i bounding box
@@ -123,19 +126,21 @@ freePlaces = 0; % contatore dei posti liberi
 busyPlaces = 0; % contatotre dei posti occupati
 places = initializePlaces(); % inizializzazione della struttura relativa alle posizioni dei posti
 frameCount = 0; % contatore del numero di frame
-
+safeBboxes = [];
+safeCentroids = [];
 
 %% MAIN LOOP: 1 ITERATION PER FRAME
 
 while ~isDone(videoSource)
     
     nextFrame = step(videoSource); % estrazione di un frame dal video
-    
+    debug = 74;
     if (any(frameCount == indexGood(:)) || jump==0) %Se il jump non ? attivo o se il frame ? buono
         
         % riconoscimento degli oggetti in movimento tramite Background Subtraction (GMM)
-        [centroids, bboxes, mask] = detectObjects(nextFrame,foregroundDetector,blobAnalyser);
-
+        [centroids, bboxes, mask] = detectObjects(nextFrame,foregroundDetector,blobAnalyser,safeBboxes,safeCentroids);
+        safeBboxes = bboxes;
+        safeCentroids = centroids;
         % predizione della nuova posizione delle tracce
 %         tracks = predictNewLocationsOfTracks(tracks);
 
@@ -148,18 +153,20 @@ while ~isDone(videoSource)
         tracks = updateAssignedTracks(tracks,assignments,centroids,bboxes,parkingAreaPoly,scaleFactor);
         % aggiornamento delle tracce NON assegnate
         tracks = updateUnassignedTracks(tracks,unassignedTracks);
+        
+        if(frameCount > 29420)
+            debug
+        end
         % eliminazione delle tracce perdute
         [tracks,freePlaces,busyPlaces,places] = deleteLostTracks(tracks,freePlaces,busyPlaces,places);
         % creazione delle tracce nuove
         [tracks, nextId] = createNewTracks(tracks,unassignedDetections,centroids,bboxes,nextId,parkingAreaPoly,scaleFactor);
-
-        minVisibleCount = 8; % valore minimo di visibilit??? affinch??? una traccia venga considerata affidabile
+        
+        minVisibleCount = 10; % valore minimo di visibilit??? affinch??? una traccia venga considerata affidabile
         if ~isempty(tracks)
             reliableTrackInds = [tracks(:).totalVisibleCount] > minVisibleCount; % estrazione degli indici delle tracce affidabili
             reliableTracks = tracks(reliableTrackInds); % estrazione delle tracce affidabili
-            if ~isempty(reliableTracks)
-                bboxes = cat(1, reliableTracks.bbox); % estrazione delle bounding boxes associate alle tracce affidabili
-            end
+            bboxes = cat(1, reliableTracks.bbox); % estrazione delle bounding boxes associate alle tracce affidabili
         end
 
         % cazzate di visualizzazione

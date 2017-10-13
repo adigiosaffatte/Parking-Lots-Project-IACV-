@@ -22,8 +22,4 @@ overlappingPolygonArea = polyarea(overlappingPolygonX,overlappingPolygonY);
 totalArea = rectOverlap(3) * rectOverlap(4);
 overlapGrade = (double(overlappingPolygonArea) / double(totalArea));
 
-if (overlapGrade > 0)
-    overlapGrade
-end
-
 end
