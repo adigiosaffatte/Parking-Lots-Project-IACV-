@@ -10,12 +10,37 @@ function tr = updateUnassignedTracks(tracks,unassignedTracks)
             tracks(ind).interestingCount = tracks(ind).interestingCount + 1;
         end
         
-        %Se sono sui bordi cancello la traks
-        if (tracks(ind).bbox(1)<=5 || tracks(ind).bbox(2)<=5 ||...
-            tracks(ind).bbox(1)+tracks(ind).bbox(3)>=380 || ...
-            tracks(ind).bbox(2)+tracks(ind).bbox(4)>=282)
-                tracks(ind).consecutiveInvisibleCount = 500;
+        noGapRadiusInside = 15;
+        noGapRadiusOutside = 9;
+       
+        if (~isempty(tracks(ind).twoStepCentroid) && ~isempty(tracks(ind).oneStepCentroid))
+            if (tracks(ind).overlappingGrade(end-2) >= 0.33)
+                close = areClose(tracks(ind).twoStepCentroid,tracks(ind).oneStepCentroid,noGapRadiusInside);
+                if (close == 1)
+                    tracks(ind).oneStepCentroid = tracks(ind).twoStepCentroid;
+                else
+                    predictedCentroid = [2*tracks(ind).twoStepCentroid(1) - tracks(ind).oneStepCentroid(1), ...
+                                         2*tracks(ind).twoStepCentroid(2) - tracks(ind).oneStepCentroid(2)];
+                    tracks(ind).oneStepCentroid = tracks(ind).twoStepCentroid;
+                    tracks(ind).twoStepCentroid = predictedCentroid;
+                end
+            else
+                close = areClose(tracks(ind).twoStepCentroid,tracks(ind).oneStepCentroid,noGapRadiusOutside);
+                if (close == 1)
+                    tracks(ind).oneStepCentroid = tracks(ind).twoStepCentroid;
+                else
+                    predictedCentroid = [2*tracks(ind).twoStepCentroid(1) - tracks(ind).oneStepCentroid(1), ...
+                                         2*tracks(ind).twoStepCentroid(2) - tracks(ind).oneStepCentroid(2)];
+                    tracks(ind).oneStepCentroid = tracks(ind).twoStepCentroid;
+                    tracks(ind).twoStepCentroid = predictedCentroid;
+                end
+            end
+            
+        else
+            tracks(ind).oneStepCentroid = tracks(ind).twoStepCentroid;
+            tracks(ind).twoStepCentroid = (tracks(ind).kalmanFilter.State([1,3]))';
         end
+        
     end
     
     tr = tracks;

@@ -29,8 +29,9 @@ function [tr,freePl,busyPl,pl] = deleteLostTracks(tracks,freePlaces,busyPlaces,p
     % contenute nel vettore relativo al grado di overlapping della traccia,
     % al fine di capire se un posto occupato ? diventato libero
     for i = 1:length(lostTracks) 
+        lostTracks(i).overlappingGrade(end)
          if (lostTracks(i).interestingCount == lostTracks(i).age) && ...
-            (lostTracks(i).overlappingGrade(lostTracks(i).age) < 0.19)
+            (lostTracks(i).overlappingGrade(lostTracks(i).age) < 0.65)
             freePlaces = freePlaces + 1;
  
             % controllo che il posto non sia gi? presente nel vettore dei posti
@@ -45,8 +46,8 @@ function [tr,freePl,busyPl,pl] = deleteLostTracks(tracks,freePlaces,busyPlaces,p
                 places(presenceIndex).isFree = 1;
             end
          end
-         if (lostTracks(i).interestingCount >0) && (lostTracks(i).overlappingGrade(lostTracks(i).age) > 0.75) ...
-            && (lostTracks(i).overlappingGrade(1) < 0.75)
+         if (lostTracks(i).interestingCount >0) && (lostTracks(i).overlappingGrade(lostTracks(i).age) > 0.70) ...
+            && (lostTracks(i).overlappingGrade(1) < 0.70)
             % controllo che il posto non sia gi? presente nel vettore dei posti
             presenceIndex = isAlreadyKnown(lostTracks(i).bbox,places);
             

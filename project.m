@@ -5,13 +5,13 @@ close all;
 %% INIT
 
 w = warning ('off','all');
-% caricamento del video (31814 frames) avente dimensioni 384 (larghezza) x 288 (altezza)
+% caricamento del video (30060 frames) avente dimensioni 384 (larghezza) x 288 (altezza)
 videoSource = vision.VideoFileReader('appa_park.mp4','ImageColorSpace','Intensity','VideoOutputDataType','uint8');
-indexGood = [1:400,1400:2000,5400:5700,6400:6800,9600:10100,16900:17600,24800:25600,27450:27850,29000:30060]; % Frame interessanti
+indexGood = [1:300,1430:1870,5400:5700,6400:6800,9600:9950,15400:15990,17060:17480,24960:25500,27490:27850,29400:30060]; % Frame interessanti
          
  % 500:1200 Trim
  % 100:800 TrimTrim
- % 1:400,1400:2000,5400:5700,6400:6800,9600:10100,16900:17600,24800:25600,27450:27850,29000:31814
+ % 1:300,1430:1870,5400:5700,6400:6800,9600:9950,17060:17480,24960:25600,27490:27850,29400:30060
              
  
 jump = 1; %Flag che indica se saltare ai flag interessanti
@@ -34,9 +34,9 @@ imshow(firstTextedFrame); % visualizzazione del frame
 
 
 % park area params
-minimumArea = 7500;
+minimumArea = 665;
 minimumSize = 60;
-maximumArea = 384*288/30; % area massima monitorabile
+maximumArea = 3100; % area massima monitorabile
 initXsize = 200;
 initYsize = 50;
 invalidRectTextPosition = [65 8]; % posizione in cui piazzare il testo
@@ -111,12 +111,12 @@ imshow(firstTextedFrame);
 
 % oggetto responsabile della Background Subtraction con GMM
 foregroundDetector = vision.ForegroundDetector('NumGaussians', 2, 'NumTrainingFrames', ...
-                     30, 'MinimumBackgroundRatio', 0.55, 'LearningRate',0.015);
+                     30, 'MinimumBackgroundRatio', 0.54, 'LearningRate',0.0145);
 
 % oggetto responsabile dell'analisi dei pixel rilevati come foreground
 % prende come input una immagine binaria, e restituisce i bounding box
 blobAnalyser = vision.BlobAnalysis('BoundingBoxOutputPort', true, 'AreaOutputPort', true, ...
-               'CentroidOutputPort', true, 'MinimumBlobArea', minimumArea * 0.08,'MaximumBlobArea',maximumArea);
+               'CentroidOutputPort', true, 'MinimumBlobArea', minimumArea,'MaximumBlobArea',maximumArea);
 
 % inizializzazione delle tracce per il Tracking
 tracks = initializeTracks();     
@@ -125,9 +125,9 @@ nextId = 1; % ID della "prossima" track
 freePlaces = 0; % contatore dei posti liberi
 busyPlaces = 0; % contatotre dei posti occupati
 places = initializePlaces(); % inizializzazione della struttura relativa alle posizioni dei posti
-frameCount = 0; % contatore del numero di frame
-safeBboxes = [];
-safeCentroids = [];
+frameCount = 0; % contatore del numero di frame 
+afterPanic = 0;
+panic = 0;
 
 %% MAIN LOOP: 1 ITERATION PER FRAME
 
@@ -135,40 +135,76 @@ while ~isDone(videoSource)
     
     nextFrame = step(videoSource); % estrazione di un frame dal video
     debug = 74;
+    debugFrame = 15577;
     if (any(frameCount == indexGood(:)) || jump==0) %Se il jump non ? attivo o se il frame ? buono
         
+        if(frameCount > debugFrame)
+            debug;
+        end
+        
         % riconoscimento degli oggetti in movimento tramite Background Subtraction (GMM)
-        [centroids, bboxes, mask] = detectObjects(nextFrame,foregroundDetector,blobAnalyser,safeBboxes,safeCentroids);
-        safeBboxes = bboxes;
-        safeCentroids = centroids;
+        [centroids, bboxes, mask, panic, afterPanic] = detectObjects(nextFrame,foregroundDetector,blobAnalyser, panic, afterPanic);
+        
+        if(frameCount > debugFrame)
+            debug;
+        end
+        
         % predizione della nuova posizione delle tracce
-%         tracks = predictNewLocationsOfTracks(tracks);
+        tracks = predictNewLocationsOfTracks(tracks);
 
         % ho trovato i nuovi oggetti in movimento, e le nuove tracce (predette con kalman) 
         % adesso associo gli oggetti rilevati alle tracce
         % ottengo tracce assegnate, e tracce non assegnate
         [assignments, unassignedTracks, unassignedDetections] = detectionToTrackAssignment(tracks,centroids,bboxes);
-
+        if (panic == 1 || afterPanic > 0)
+           nTracks = length(tracks);
+           unassignedTracks = [1:nTracks]';
+           assignments = [];
+        end
+        
+        if(frameCount > debugFrame)
+            debug;
+        end
+        
         % aggiornamento delle tracce assegnate 
         tracks = updateAssignedTracks(tracks,assignments,centroids,bboxes,parkingAreaPoly,scaleFactor);
+        
+        if(frameCount > debugFrame)
+            debug;
+        end
+        
         % aggiornamento delle tracce NON assegnate
         tracks = updateUnassignedTracks(tracks,unassignedTracks);
         
-        if(frameCount > 29420)
-            debug
+        if(frameCount > debugFrame)
+            debug;
         end
+        
         % eliminazione delle tracce perdute
         [tracks,freePlaces,busyPlaces,places] = deleteLostTracks(tracks,freePlaces,busyPlaces,places);
+        
+        if(frameCount > debugFrame)
+            debug;
+        end
+        
         % creazione delle tracce nuove
-        [tracks, nextId] = createNewTracks(tracks,unassignedDetections,centroids,bboxes,nextId,parkingAreaPoly,scaleFactor);
+        [tracks, nextId] = createNewTracks(tracks,unassignedDetections,centroids,bboxes,nextId,parkingAreaPoly,scaleFactor,panic);
+        
+        if(frameCount > debugFrame)
+            debug;
+        end
         
         minVisibleCount = 10; % valore minimo di visibilit??? affinch??? una traccia venga considerata affidabile
         if ~isempty(tracks)
             reliableTrackInds = [tracks(:).totalVisibleCount] > minVisibleCount; % estrazione degli indici delle tracce affidabili
             reliableTracks = tracks(reliableTrackInds); % estrazione delle tracce affidabili
+            reliableTrackInds = [reliableTracks(:).consecutiveInvisibleCount] == 0;
+            reliableTracks = tracks(reliableTrackInds);
             bboxes = cat(1, reliableTracks.bbox); % estrazione delle bounding boxes associate alle tracce affidabili
+        elseif (panic == 1)
+            bboxes = double([]);
         end
-
+        
         % cazzate di visualizzazione
         nextFrame = insertShape(nextFrame,'rectangle',bboxes); % inserimento rettangoli attorno alle tracce affidabili
         placesTextPosition = [30 8]; % posizione del testo indicante il numero di parcheggi liberi/occupati
@@ -187,6 +223,7 @@ while ~isDone(videoSource)
         tracks = initializeTracks();  
     end
     frameCount = frameCount + 1; % aumento del contatore di frame
+    
 end
 
 release(videoSource); % rilascio dell'oggetto video

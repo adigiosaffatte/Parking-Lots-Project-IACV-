@@ -32,6 +32,9 @@ function tr = updateAssignedTracks(tracks,assignments,centroids,bboxes,rect,scal
                 tracks(trackIdx).interestingCount + 1;
         end
         
+        tracks(trackIdx).oneStepCentroid = tracks(trackIdx).twoStepCentroid;
+        tracks(trackIdx).twoStepCentroid = centroid;
+        
     end
     
     tr = tracks;
